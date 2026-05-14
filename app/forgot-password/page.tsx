@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
         email,
         {
           redirectTo:
-            "http://localhost:3000/reset-password",
+            "https://YOUR-PROJECT.vercel.app/reset-password",
         }
       );
 

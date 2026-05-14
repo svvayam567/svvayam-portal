@@ -165,7 +165,7 @@ export async function POST(
 
         <p>
           <strong>Login URL:</strong><br/>
-          http://localhost:3000/login
+          https://YOUR-PROJECT.vercel.app/login
         </p>
 
         <p>
