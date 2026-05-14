@@ -22,6 +22,13 @@ type CommentItem = {
   created_at: string;
 };
 
+type ProjectFile = {
+  id: string;
+  file_name: string;
+  file_url: string;
+  created_at: string;
+};
+
 type Project = {
   id: string;
   client_name: string;
@@ -46,14 +53,17 @@ export default function ProjectControlPage() {
     useState<File | null>(null);
 
   const [project, setProject] =
-    useState<Project | null>(null);
+  useState<Project | null>(null);
 
-  const [items, setItems] =
-    useState<ChecklistItem[]>([]);
+const [items, setItems] =
+  useState<ChecklistItem[]>([]);
 
-  const [comments, setComments] =
-    useState<CommentItem[]>([]);
+const [comments, setComments] =
+  useState<CommentItem[]>([]);
 
+const [files, setFiles] =
+  useState<ProjectFile[]>([]);
+  
   useEffect(() => {
     initialize();
   }, []);
@@ -83,6 +93,7 @@ export default function ProjectControlPage() {
     await fetchProject();
     await fetchChecklist();
     await fetchComments();
+    await fetchFiles(projectId);
 
     setLoading(false);
   }
@@ -145,6 +156,27 @@ export default function ProjectControlPage() {
 
     setComments(data || []);
   }
+
+async function fetchFiles(
+  projectId: string
+) {
+  const { data, error } =
+    await supabase
+      .from("project_files")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", {
+        ascending: false,
+      });
+
+  if (error) {
+    console.log(error);
+    return;
+  }
+
+  setFiles(data || []);
+}
+
 
   async function calculateProgress() {
     const { data, error } =
@@ -296,6 +328,66 @@ export default function ProjectControlPage() {
 
     setUploading(false);
   }
+
+async function uploadProjectFile() {
+  if (!selectedFile) {
+    alert("Please select file");
+    return;
+  }
+
+  setUploading(true);
+
+  const fileName = `${projectId}/${Date.now()}-${selectedFile.name}`;
+
+  const { error: uploadError } =
+    await supabase.storage
+      .from("project-files")
+      .upload(
+        fileName,
+        selectedFile,
+        {
+          upsert: true,
+        }
+      );
+
+  if (uploadError) {
+    alert(uploadError.message);
+    setUploading(false);
+    return;
+  }
+
+  const { data: publicData } =
+    supabase.storage
+      .from("project-files")
+      .getPublicUrl(fileName);
+
+  const publicUrl =
+    publicData.publicUrl;
+
+  const { error: dbError } =
+    await supabase
+      .from("project_files")
+      .insert({
+        project_id: projectId,
+        file_name:
+          selectedFile.name,
+        file_url: publicUrl,
+      });
+
+  if (dbError) {
+    alert(dbError.message);
+    setUploading(false);
+    return;
+  }
+
+  alert("Project File Uploaded");
+
+  await fetchFiles(projectId);
+
+  setSelectedFile(null);
+
+  setUploading(false);
+}
 
   const grouped = {
     Design: items.filter(
@@ -660,6 +752,111 @@ export default function ProjectControlPage() {
       </section>
 
       {/* COMMENTS */}
+
+{/* PROJECT FILES */}
+
+<section
+  style={{
+    background: "white",
+    padding: "30px",
+    marginBottom: "30px",
+    border:
+      "1px solid #ece7df",
+  }}
+>
+  <h2
+    style={{
+      marginBottom: "20px",
+      fontFamily: "serif",
+    }}
+  >
+    Project Files
+  </h2>
+
+  <input
+    type="file"
+    onChange={(e) => {
+      if (e.target.files?.[0]) {
+        setSelectedFile(
+          e.target.files[0]
+        );
+      }
+    }}
+  />
+
+  {selectedFile && (
+    <p
+      style={{
+        marginTop: "14px",
+        color: "#6b7280",
+      }}
+    >
+      Selected:
+      {" "}
+      {selectedFile.name}
+    </p>
+  )}
+
+  <button
+    onClick={uploadProjectFile}
+    style={{
+      padding: "12px 18px",
+      background: "#111827",
+      color: "white",
+      border: "none",
+      cursor: "pointer",
+      marginTop: "20px",
+    }}
+  >
+    Upload File
+  </button>
+
+  {uploading && (
+    <p
+      style={{
+        marginTop: "14px",
+      }}
+    >
+      Uploading File...
+    </p>
+  )}
+
+  <div
+    style={{
+      display: "grid",
+      gap: "12px",
+      marginTop: "24px",
+    }}
+  >
+    {files.map((file) => (
+      <div
+        key={file.id}
+        style={{
+          padding: "16px",
+          border:
+            "1px solid #ece7df",
+          background:
+            "#fafaf9",
+        }}
+      >
+        <p>{file.file_name}</p>
+
+        <a
+          href={file.file_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: "#111827",
+            textDecoration:
+              "underline",
+          }}
+        >
+          View File
+        </a>
+      </div>
+    ))}
+  </div>
+</section>
 
       <section
         style={{
